@@ -1,0 +1,176 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Job Tracker Form",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Job Description",
+              "fieldType": "textarea"
+            },
+            {
+              "fieldLabel": "Job URL"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.5,
+      "position": [
+        -512,
+        -32
+      ],
+      "id": "f1b1a0d4-91ea-4ee2-8aaf-d93f0c397a0f",
+      "name": "On form submission",
+      "webhookId": "921f7d55-8b5c-452e-9d07-31fe20958570"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a job analysis assistant. Analyze the job description below and return ONLY a valid JSON object with these exact fields:\n{\n  \"company\": \"company name\",\n  \"role\": \"job title\",\n  \"skills_required\": \"comma separated skills from the job\",\n  \"skills_gap\": \"skills in the job NOT found in: Python, Django, PostgreSQL, Docker, n8n, FastAPI, REST APIs, AWS, Azure, OpenAI API\",\n  \"match_score\": 85,\n  \"fit_summary\": \"2 sentence summary of how well this role fits\"\n}\n\nJob Description:\n{{ $json[\"Job Description\"] }}\n\nReturn ONLY the JSON. No explanation, no markdown, no extra text.",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        -208,
+        -32
+      ],
+      "id": "c10e9691-bd7d-4d51-a783-c1a33b361b67",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-5-20250929",
+          "cachedResultName": "Claude Sonnet 4.5"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        -80,
+        160
+      ],
+      "id": "5f646226-7eb0-4241-a136-b9dbf5222d38",
+      "name": "Anthropic Chat Model",
+      "credentials": {
+        "anthropicApi": {
+          "id": "WOwq98hUh8j3JqkZ",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Loop over input items and add a new field called 'myNewField' to the JSON of each one\nconst raw = $input.first().json.text;\n\n// Remove markdown if present\nconst cleaned = raw\n  .replace(/```json/g, '')\n  .replace(/```/g, '')\n  .trim();\n\nconst data = JSON.parse(cleaned);\n\nreturn [{ json: data }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        176,
+        -32
+      ],
+      "id": "bdd12497-b7f5-40d6-96a6-f30635935e96",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://backend.composio.dev/api/v2/actions/NOTION_INSERT_ROW_DATABASE/execute",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key ",
+              "value": "ak_oddZKrQZ3qNQLssn2sL8 "
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"appName\": \"notion\",\n  \"entityId\": \"pg-test-a2589382-d21c-4efa-8aed-4efbf2e4367b\",\n  \"input\": {\n    \"database_id\": \"335079813f2f80ff9b81fc6967ca0b8d\",\n    \"properties\":  [\n  {\"name\": \"Role\", \"type\": \"title\", \"value\": \"{{ $json.role }}\"},\n  {\"name\": \"Company\", \"type\": \"rich_text\", \"value\": \"{{ $json.company }}\"},\n  {\"name\": \"Skills Required\", \"type\": \"rich_text\", \"value\": \"{{ $json.skills_required }}\"},\n  {\"name\": \"Skills Gap\", \"type\": \"rich_text\", \"value\": \"{{ $json.skills_gap }}\"},\n  {\"name\": \"Match Score\", \"type\": \"number\", \"value\": \"{{ $json.match_score }}\"},\n  {\"name\": \"Summary\", \"type\": \"rich_text\", \"value\": \"{{ $json.fit_summary }}\"},\n  {\"name\": \"Status\", \"type\": \"select\", \"value\": \"Applied\"}\n]\n}\n}\n",
+        "options": {
+          "lowercaseHeaders": false
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        384,
+        -32
+      ],
+      "id": "52fc7752-7c7f-49a9-ae7c-19121bde67f4",
+      "name": "HTTP Request"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Anthropic Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "ed3baa0e-1386-4b46-9104-047db8784b0a",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e45ff810fd40f785dfa030ce6101fd6f1d11ef65541a1eecdb2289ef7b8c9de8"
+  },
+  "id": "JbcSinH83i3UNi91",
+  "tags": []
+}
